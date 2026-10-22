@@ -199,4 +199,19 @@ struct MonotonicTests {
     let time = try #require(try Uxid.decode(id).get().time)
     #expect(before <= time && time <= after)
   }
+
+  @Test("xl compact and standard share state (sabotage: key adds compact -> no refusal)")
+  func compactAfterStandardShares() throws {
+    // 31 x 2^35 ms: a standard time, and the first one a compact field refuses.
+    // A compact request one second earlier is fine alone.
+    let marked: UInt64 = 31 << 35
+    let later = Uxid.Options(prefix: "usr", compactTime: true, time: marked - 1000)
+
+    let fresh = Uxid.Monotonic()
+    _ = try fresh.generate(later)
+
+    let shared = Uxid.Monotonic()
+    _ = try shared.generate(Uxid.Options(prefix: "usr", time: marked))
+    #expect(throws: Uxid.Error.compactTimeOutOfRange) { try shared.generate(later) }
+  }
 }

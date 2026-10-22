@@ -86,12 +86,23 @@ extension Uxid {
   /// with the lock held, so the ids one generator makes for one prefix and
   /// random field width increase strictly in the order the calls take the
   /// lock, whichever task makes them. The byte source and the draw source are
-  /// called with the lock held. The state lives in the instance alone, with
+  /// called with the lock held, and the lock is not reentrant: a source must
+  /// not call the generator it serves, directly or through a task it waits
+  /// on, or the call waits on itself and never returns. The state lives in the instance alone, with
   /// nothing kept in a static property, so two generators never affect each
   /// other, and ids from two generators carry no order between them within a
   /// millisecond. The state for each pair is kept for the generator's
   /// lifetime, so it grows by one entry for each distinct prefix and random
   /// field width the generator is given.
+  ///
+  /// The state is kept per prefix and random field width, as the wire format
+  /// says, and not per size or time form. Two requests with the same prefix
+  /// and random field width share one state however they differ otherwise: a
+  /// compact ``Uxid/Size/xl`` request after a standard one, both with a
+  /// 10-byte field, takes the stored time when its own is at or before it,
+  /// and is refused with ``Uxid/Error/compactTimeOutOfRange`` when that
+  /// stored time is one a compact time field cannot hold. A caller that mixes
+  /// the two forms for one prefix keeps a generator for each.
   ///
   /// ## A refused call
   ///
@@ -110,7 +121,7 @@ extension Uxid {
     /// It exists to replay known values, as a test or a conformance case
     /// does, and is never a source of randomness for real ids: a monotonic id
     /// is exactly as guessable as its draws. A generator calls it with its
-    /// lock held.
+    /// lock held, so it must not call that generator.
     public struct DrawSource: Sendable {
       /// Returns a fresh random value for a random field of the given width
       /// in bytes (1 to 10): exactly that many bytes, read as one big-endian

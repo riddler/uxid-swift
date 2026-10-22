@@ -203,7 +203,8 @@ extension Uxid {
     /// ``Uxid/generate(_:)`` calls it once per id, and not at all when
     /// ``rand`` is set, the random field is empty or the id is deterministic
     /// (``from``). ``Uxid/Monotonic`` calls it for each seed and step it
-    /// draws, as its documentation says.
+    /// draws, as its documentation says, with its lock held, so a source given
+    /// to a generator must not call that generator.
     ///
     /// - Precondition: The source returns exactly the count it is asked for.
     public var byteSource: ByteSource

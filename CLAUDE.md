@@ -159,23 +159,23 @@ The tree on `main` today holds the package manifest (`Package.swift`, with
 the namespace enum and its version constant (`Sources/Uxid/Version.swift`),
 time-based and deterministic generation (`Uxid.generate(_:)` with
 `Uxid.Options`, the `Size` and `Case` types, the time bound `Uxid.maxTime` and
-the closed set of `Uxid.Error` names) and the SHA-256 that deterministic ids
-hash with (`Sources/Uxid/SHA256.swift`), decoding (`Uxid.decode(_:options:)`
-with `Uxid.DecodeOptions`, `Uxid.Decoded` and the closed set of
-`Uxid.DecodeError` reasons) and the validity checks
-(`Uxid.isValid(_:delimiter:prefix:)` and `Uxid.isDeterministic(_:delimiter:)`),
-monotonic generation (`Uxid.Monotonic`, with its `DrawSource`), a Swift
-Testing target
-(`Tests/UxidTests/`) with the conformance corpus runner, the conformance
-corpus vendored from uxid-ex (`conformance/`, its source recorded in
-`conformance/SOURCE.json`, with `.gitattributes` keeping its bytes exact),
-the gate tasks (`mise.toml`, `.swift-format`,
-`scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
-the release workflow (`.github/workflows/release.yml`), `LICENSE`,
-`CHANGELOG.md` with the fragment rule in `changelog.d/README.md`, these
-agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
-manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
-tracker files under `.beads/` and a `.gitignore`.
+the closed set of `Uxid.Error` names), the SHA-256 that deterministic ids hash
+with (`Sources/Uxid/SHA256.swift`), decoding (`Uxid.decode(_:options:)` with
+`Uxid.DecodeOptions`, `Uxid.Decoded` and the closed set of `Uxid.DecodeError`
+reasons), the validity checks (`Uxid.isValid(_:delimiter:prefix:)` and
+`Uxid.isDeterministic(_:delimiter:)`), monotonic generation (`Uxid.Monotonic`,
+with its `DrawSource`), the DocC catalog (`Sources/Uxid/Uxid.docc/`), a Swift
+Testing target (`Tests/UxidTests/`) with the conformance corpus runner, the
+conformance corpus vendored from uxid-ex (`conformance/`, its source recorded
+in `conformance/SOURCE.json`, with `.gitattributes` keeping its bytes exact),
+the gate tasks (`mise.toml`, `.swift-format`, `scripts/coverage-floor.sh`), CI
+(`.github/workflows/ci.yml`), the release workflow
+(`.github/workflows/release.yml`), `README.md`, `docs/wire-format.md`, the
+Swift Package Index manifest (`.spi.yml`), `LICENSE`, `CHANGELOG.md` with the
+fragment rule in `changelog.d/README.md`, these agent instructions
+(`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk manifest
+(`.claude/wurk.json`), the session hook (`.claude/settings.json`), the tracker
+files under `.beads/` and a `.gitignore`.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
@@ -186,8 +186,8 @@ tracker files under `.beads/` and a `.gitignore`.
   against uxid-ex with its evidence, never skipped or worked round here. An
   answer the corpus does not fix follows uxid-ex's spec at that tag.
 
-`README.md`, which a later change adds, is the user reference; `CHANGELOG.md`
-records each release.
+`README.md` is the user reference, and a test checks that it holds its
+basic-usage example verbatim; `CHANGELOG.md` records each release.
 
 ## Build & Test
 
