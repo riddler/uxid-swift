@@ -138,6 +138,19 @@ private func compactXsCase(prefix: String) -> String {
     + #""prefix":\#(prefix),"rand":"01","size":"xs","time":1700000000000}}"#
 }
 
+/// The message of the reader's refusal of a case, or what happened instead:
+/// `nothing thrown`, or `another error` and the error.
+private func refusal(_ testCase: StrictCase) -> String {
+  do {
+    try testCase.run()
+    return "nothing thrown"
+  } catch let error as CorpusFormatError {
+    return error.description
+  } catch {
+    return "another error: \(error)"
+  }
+}
+
 /// A null prefix and the empty one, as a case spells them.
 private let spellings = ["null", #""""#]
 
@@ -145,14 +158,12 @@ private let spellings = ["null", #""""#]
 struct CorpusReaderTests {
   @Test("unknown key (sabotage: done() a no-op -> nothing thrown)", arguments: unknownKeys)
   func rejectsUnknownKey(_ testCase: StrictCase) {
-    let error = #expect(throws: CorpusFormatError.self) { try testCase.run() }
-    #expect(error?.description.hasPrefix("unknown key extra") == true)
+    #expect(refusal(testCase).hasPrefix("unknown key extra"))
   }
 
   @Test("missing key (sabotage: missing as null -> message differs)", arguments: missingKeys)
   func rejectsMissingKey(_ testCase: StrictCase) {
-    let error = #expect(throws: CorpusFormatError.self) { try testCase.run() }
-    #expect(error?.description == "missing key \(testCase.missing ?? "")")
+    #expect(refusal(testCase) == "missing key \(testCase.missing ?? "")")
   }
 
   @Test("null prefix is none (sabotage: null as \"null\" -> id mismatch)", arguments: spellings)

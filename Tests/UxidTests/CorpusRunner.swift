@@ -31,7 +31,8 @@ enum CorpusRunner {
     try input.done()
     try root.done()
 
-    #expect(outcome { () throws(Uxid.Error) in try Uxid.generate(options) } == expected)
+    let given = outcome { () throws(Uxid.Error) in try Uxid.generate(options) }
+    #expect(given == expected)
   }
 
   /// A deterministic case: the deterministic id of `from` equals the
@@ -49,7 +50,8 @@ enum CorpusRunner {
     try input.done()
     try root.done()
 
-    #expect(outcome { () throws(Uxid.Error) in try Uxid.generate(options) } == expected)
+    let given = outcome { () throws(Uxid.Error) in try Uxid.generate(options) }
+    #expect(given == expected)
   }
 
   /// A decode case: the string decodes, under the fixed decoder clock, to
