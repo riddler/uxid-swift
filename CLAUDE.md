@@ -142,10 +142,10 @@ Also avoid `bd edit`, which opens `$EDITOR` and blocks. Use
 
 ## What this project is
 
-`uxid` for Swift. Version 1.0.0, the package this repository is being built
-into, makes prefixed, K-sortable, Stripe-style identifiers a person can read,
-copy and route back to their resource, wire-compatible with the Elixir
-reference `uxid` and checked against its conformance corpus. It covers
+`uxid` for Swift. This repository is that package: it makes prefixed,
+K-sortable, Stripe-style identifiers a person can read, copy and route back to
+their resource, wire-compatible with the Elixir reference `uxid` and checked
+against its conformance corpus. It covers
 generation (random, deterministic and monotonic), decoding and the validity
 checks. It is a SwiftPM package named `uxid` with one library product and
 module, `Uxid`, in the Swift 6 language mode with `swift-tools-version: 6.0`,
@@ -178,7 +178,9 @@ fragment rule in `changelog.d/README.md`, these agent instructions
 files under `.beads/` and a `.gitignore`.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
-  Version 1.0.0 is its first release, and its first tag.
+  Version 1.0.0 is its first release. The version is the constant
+  `Uxid.version` in `Sources/Uxid/Version.swift`, and `CHANGELOG.md` says what
+  each version holds.
 - **The corpus is the arbiter.** `conformance/` holds the corpus
   vendored from uxid-ex at a release tag, its tag, commit and hash recorded in
   `conformance/SOURCE.json`. The vendored files are never edited, and every
