@@ -87,8 +87,8 @@ table.)
 **Release preps.** The version bump and the tag of a release prep are the
 family norm, not a grant a campaign consent has to name. On a release bead
 a campaign consent names, or the operator names in their own words,
-the prep - the version bump (the version constant in
-`Sources/Uxid/Version.swift`, which the scaffold adds), the version in the
+the prep - the version bump (the version constant `Uxid.version` in
+`Sources/Uxid/Version.swift`), the version in the
 README's `.package(url:from:)` line once the README carries one, and the
 changelog promotion - lands through the rows above; once it is merged to
 `origin/main`, the conductor or the session that owns the release bead tags
@@ -109,7 +109,7 @@ repository's contents; it uploads nothing and holds no write permission. Until
 it is on `main`, nothing verifies a pushed tag. A failed workflow is re-run
 from its Actions page, never worked round by hand; a version found broken
 after its tag is pushed is fixed by a new patch version, never by moving the
-tag. This repository has no repository secret, and neither workflow needs
+tag. This repository has no repository secret, and no workflow needs
 one: no agent or session creates, sets, reads or lists one, or runs
 `gh secret` against this repository. Merging the prep follows this file's
 merge row, and nothing else this file reserves for the operator changes. A
@@ -155,13 +155,18 @@ nothing beyond the standard library and the platform C library (the library
 imports no Foundation), and takes its random bytes from
 `SystemRandomNumberGenerator` by default.
 
-The tree on `main` today holds only these agent instructions (`CLAUDE.md`, with
-`AGENTS.md` a symlink to it), the wurk manifest (`.claude/wurk.json`), the
-session hook (`.claude/settings.json`), the tracker files under `.beads/` and a
-`.gitignore`. `Package.swift`, the library, the tests, the gate tasks, CI, the
-release workflow and the vendored corpus arrive with later changes; until they
-do, the sentences in this file about the 1.0.0 package, its corpus, its gate
-and its workflows describe the target, not the current tree.
+The tree on `main` today holds the package manifest (`Package.swift`, with
+`Package.resolved` pinning the documentation plugin), the module `Uxid` with
+only the namespace enum and its version constant (`Sources/Uxid/Version.swift`),
+a Swift Testing target (`Tests/UxidTests/`), the gate tasks (`mise.toml`,
+`.swift-format`, `scripts/coverage-floor.sh`), `LICENSE`, `CHANGELOG.md`, these
+agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
+manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
+tracker files under `.beads/` and a `.gitignore`. The generation, decoding and
+validity checks, CI, the release workflow and the vendored corpus arrive with
+later changes; until they do, the sentences in this file about the 1.0.0
+package's API, its corpus and its workflows describe the target, not the
+current tree.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
@@ -172,27 +177,33 @@ and its workflows describe the target, not the current tree.
   against uxid-ex with its evidence, never skipped or worked round here. An
   answer the corpus does not fix follows uxid-ex's spec at that tag.
 
-`README.md`, which a later change adds, is the user reference; `CHANGELOG.md`,
-which the scaffold adds, records each release.
+`README.md`, which a later change adds, is the user reference; `CHANGELOG.md`
+records each release.
 
 ## Build & Test
 
-The gate tasks live in `mise.toml`, which the scaffold adds; on a tree without
-it these commands do not run yet.
+The gate tasks live in `mise.toml`; it pins no tool.
 
 ```bash
-mise install            # the tools mise.toml pins, if any
 mise run gate:loop      # inner loop
 mise run gate           # full gate
 ```
 
-Once the change that adds the gate tasks lands, the full gate will print
-`swift --version` first and then run `swift format lint --strict`, the build
-with warnings as errors, `swift test --enable-code-coverage` on Swift Testing,
-a coverage floor at 90 percent of lines read from the code-coverage report,
-the DocC documentation build, and the conformance corpus check once the corpus
-is vendored. The inner loop, `mise run gate:loop`, will be the build and the
-tests.
+The full gate prints `swift --version` first and then runs
+`swift format lint --strict` over `Package.swift`, `Sources/` and `Tests/`,
+the build of the library and the tests with warnings as errors (the
+`-warnings-as-errors` flag is passed by the gate, never set in
+`Package.swift`), `swift test --enable-code-coverage` on Swift Testing, the
+coverage floor, and the DocC documentation build with warnings as errors. The
+conformance corpus check joins the full gate when the corpus is vendored. The
+inner loop, `mise run gate:loop`, is the build and the tests.
+
+The coverage floor, `scripts/coverage-floor.sh`, exports the coverage data
+the test run wrote with `llvm-cov export` and fails under 90 percent of the
+lines in the files under `Sources/Uxid/`; test files do not count. A file
+with no executable line has no line in the report, so while no library file
+has one the floor passes and says so; the first executable line under
+`Sources/Uxid/` puts every library line under the floor.
 
 Locally the gate runs on the system Swift toolchain (Xcode's `swift`), not on
 one mise installs. The toolchain floor is declared separately:
