@@ -8,13 +8,13 @@ extension Uxid {
   public static let maxTime: UInt64 = (1 << 48) - 1
 
   /// The low 40 bits a compact time field holds.
-  private static let compactMask: UInt64 = (1 << 40) - 1
+  static let compactMask: UInt64 = (1 << 40) - 1
 
   /// The widest random field at any size, in bytes.
-  private static let maxRandBytes = 10
+  static let maxRandBytes = 10
 
   /// The deterministic marker's value, which a compact time may not start with.
-  private static let marker: UInt64 = 31
+  static let marker: UInt64 = 31
 
   /// Generates an id: the prefix and the delimiter (none for no prefix),
   /// then a time-based body (the time field and the random field) or, when
@@ -80,8 +80,7 @@ extension Uxid {
       throw .randWidthMismatch
     }
 
-    let compactTime = time & compactMask
-    if compact && compactTime >> 35 == marker {
+    if compact && startsWithMarker(compactTime: time) {
       throw .compactTimeOutOfRange
     }
 
@@ -95,9 +94,22 @@ extension Uxid {
       precondition(rand.count == width, "the byte source must return exactly the count asked for")
     }
 
+    return timeId(options, time: time, compact: compact, rand: rand)
+  }
+
+  /// Whether the compact time field of `time`, its low 40 bits, would start
+  /// with the deterministic marker, which the wire format refuses.
+  static func startsWithMarker(compactTime time: UInt64) -> Bool {
+    (time & compactMask) >> 35 == marker
+  }
+
+  /// Writes a time-based id from a time and a random field the caller has
+  /// checked: the options' prefix and delimiter, then the time field (compact
+  /// or standard) and the random field, in the options' case.
+  static func timeId(_ options: Options, time: UInt64, compact: Bool, rand: [UInt8]) -> String {
     var id = start(options)
     if compact {
-      Base32.appendInteger(compactTime, characters: 8, case: options.case, to: &id)
+      Base32.appendInteger(time & compactMask, characters: 8, case: options.case, to: &id)
     } else {
       Base32.appendInteger(time, characters: 10, case: options.case, to: &id)
     }

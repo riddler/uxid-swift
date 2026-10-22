@@ -127,7 +127,8 @@ extension Uxid {
     /// A deterministic id carries no time and no random field, so ``time``,
     /// ``compactTime``, ``randSize`` and ``byteSource`` are not read (there is
     /// no compact deterministic form), and ``rand`` set beside this property
-    /// is refused with ``Uxid/Error/randWithFrom``.
+    /// is refused with ``Uxid/Error/randWithFrom``. ``Uxid/Monotonic`` refuses
+    /// this property with ``Uxid/Error/fromWithMonotonic``.
     ///
     /// The id is exactly as guessable as the string: anyone who knows the
     /// prefix, the string and the size can build it.
@@ -153,7 +154,9 @@ extension Uxid {
     /// characters, in place of the 48-bit standard time in 10, the freed 8
     /// bits going to the random field at every size but ``Uxid/Size/xl``.
     ///
-    /// `nil`, the default, is standard time, as `false` is. A compact time
+    /// `nil`, the default, is standard time, as `false` is, except to
+    /// ``Uxid/Monotonic``, which reads `nil` at size ``Uxid/Size/xs`` as
+    /// compact time. A compact time
     /// whose first character would be the deterministic marker is refused
     /// with ``Uxid/Error/compactTimeOutOfRange``. Not read for a
     /// deterministic id (``from``).
@@ -197,8 +200,10 @@ extension Uxid {
     /// The source of the random field's bytes; the default reads
     /// `SystemRandomNumberGenerator`.
     ///
-    /// It is called once per id, and not at all when ``rand`` is set, the
-    /// random field is empty or the id is deterministic (``from``).
+    /// ``Uxid/generate(_:)`` calls it once per id, and not at all when
+    /// ``rand`` is set, the random field is empty or the id is deterministic
+    /// (``from``). ``Uxid/Monotonic`` calls it for each seed and step it
+    /// draws, as its documentation says.
     ///
     /// - Precondition: The source returns exactly the count it is asked for.
     public var byteSource: ByteSource
