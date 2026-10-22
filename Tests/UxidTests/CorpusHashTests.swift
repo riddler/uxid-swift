@@ -65,7 +65,8 @@ struct CorpusHashTests {
   @Test("files hash to corpus_hash (sabotage: files hashed reversed -> hash mismatch)")
   func corpusHashMatches() throws {
     let manifest = try Manifest.read()
-    #expect(try corpusHash(manifest.files.map(\.file)) == manifest.corpusHash)
+    let computed = try corpusHash(manifest.files.map(\.file))
+    #expect(computed == manifest.corpusHash)
   }
 
   @Test("case_count is each file's lines (sabotage: last line dropped -> count mismatch)")
@@ -73,8 +74,10 @@ struct CorpusHashTests {
     let manifest = try Manifest.read()
     for entry in manifest.files {
       let file = try #require(CaseFile(rawValue: entry.kind))
-      #expect(try Corpus.lines(file).count == entry.caseCount, "\(entry.file)")
-      #expect(try Corpus.cases(file).count == entry.caseCount, "\(entry.file)")
+      let lines = try Corpus.lines(file).count
+      let cases = try Corpus.cases(file).count
+      #expect(lines == entry.caseCount, "\(entry.file)")
+      #expect(cases == entry.caseCount, "\(entry.file)")
     }
   }
 
@@ -99,14 +102,17 @@ struct CorpusHashTests {
     #expect(repo == "riddler/uxid-ex")
     #expect(tag.hasPrefix("v"))
     #expect(sha.count == 40 && sha.allSatisfy { "0123456789abcdef".contains($0) })
-    #expect(recorded == (try Manifest.read().corpusHash))
-    #expect(recorded == (try corpusHash(caseFiles)))
+    let manifestHash = try Manifest.read().corpusHash
+    let computed = try corpusHash(caseFiles)
+    #expect(recorded == manifestHash)
+    #expect(recorded == computed)
   }
 
   @Test("case files use newline endings (sabotage: a carriage return added -> CR found)")
   func newlineEndings() throws {
     for file in caseFiles {
-      #expect(!(try Corpus.bytes(file)).contains(UInt8(ascii: "\r")), "\(file)")
+      let bytes = try Corpus.bytes(file)
+      #expect(!bytes.contains(UInt8(ascii: "\r")), "\(file)")
     }
   }
 }
