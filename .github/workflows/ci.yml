@@ -9,7 +9,9 @@ name: CI
 #   image on Ubuntu 24.04 (noble), so the build, the tests, the coverage
 #   floor (scripts/coverage-floor.sh, which finds the test binary and
 #   llvm-cov differently on Linux) and the documentation build are proven
-#   there too.
+#   there too. Before the gate it runs, in that image, the git commands
+#   release.yml's `linux` job runs before its gate, which cannot run on a
+#   pull request.
 # - `floor` builds and tests on the oldest toolchain Package.swift admits
 #   (`swift-tools-version: 6.0`), in the official Swift 6.0 noble image. It
 #   runs the build and the tests only: `swift format` and the documentation
@@ -111,7 +113,8 @@ jobs:
       - name: Check the gate left the checkout clean
         run: |
           set -euo pipefail
-          if [ -n "$(git status --porcelain)" ]; then
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
             git status --short
             echo "::error::the gate left changed or untracked files" >&2
             exit 1
@@ -127,7 +130,31 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      # The job runs as root in the image, over a workspace the runner's user
+      # owns, so git refuses the checkout as dubious ownership until it is
+      # trusted. actions/checkout trusts it only in a global config under a
+      # HOME of its own, which later steps do not use.
+      - name: Trust the checkout for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # The git commands release.yml's `linux` job runs before its gate, run
+      # here in the same image: the default branch fetch without a credential,
+      # and a merge-base walk over the full history. On a pull request the
+      # checked-out commit is the merge commit, so it shares history with the
+      # default branch.
+      - name: Check git reads the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test -n "$DEFAULT_BRANCH" || { echo "::error::the event names no default branch" >&2; exit 1; }
+          git fetch --no-tags origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          base="$(git merge-base "$commit" "origin/${DEFAULT_BRANCH}")"
+          echo "${commit} shares ${base} with ${DEFAULT_BRANCH}"
 
       - name: Print the Swift toolchain
         run: swift --version
@@ -167,7 +194,8 @@ jobs:
       - name: Check the gate left the checkout clean
         run: |
           set -euo pipefail
-          if [ -n "$(git status --porcelain)" ]; then
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
             git status --short
             echo "::error::the gate left changed or untracked files" >&2
             exit 1
@@ -184,6 +212,13 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+
+      # The job runs as root in the image, over a workspace the runner's user
+      # owns, so git refuses the checkout as dubious ownership until it is
+      # trusted. actions/checkout trusts it only in a global config under a
+      # HOME of its own, which later steps do not use.
+      - name: Trust the checkout for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       # The image carries no curl or wget, which the mise download needs:
       # both come from the image's Ubuntu 24.04 package archive.
