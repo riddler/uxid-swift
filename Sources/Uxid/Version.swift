@@ -4,5 +4,5 @@
 /// `Uxid` is the namespace that holds this package's public API.
 public enum Uxid {
   /// This package's version, in the form `major.minor.patch`.
-  public static let version = "0.1.0"
+  public static let version = "1.0.0"
 }
