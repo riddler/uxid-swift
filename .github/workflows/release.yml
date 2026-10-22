@@ -172,7 +172,8 @@ jobs:
       - name: Check the gate left the checkout clean
         run: |
           set -euo pipefail
-          if [ -n "$(git status --porcelain)" ]; then
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
             git status --short
             echo "::error::the gate left changed or untracked files" >&2
             exit 1
@@ -197,6 +198,13 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      # The job runs as root in the image, over a workspace the runner's user
+      # owns, so git refuses the checkout as dubious ownership until it is
+      # trusted. actions/checkout trusts it only in a global config under a
+      # HOME of its own, which later steps do not use.
+      - name: Trust the checkout for git
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Check the tagged commit is on the default branch
         env:
@@ -266,7 +274,8 @@ jobs:
       - name: Check the gate left the checkout clean
         run: |
           set -euo pipefail
-          if [ -n "$(git status --porcelain)" ]; then
+          status="$(git status --porcelain)"
+          if [ -n "$status" ]; then
             git status --short
             echo "::error::the gate left changed or untracked files" >&2
             exit 1
