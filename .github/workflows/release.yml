@@ -46,8 +46,9 @@ name: Release
 # Re-runs. Neither job writes anything, so a re-run of either or both jobs
 # repeats the same checks from the start. A run that failed for a reason
 # outside the tagged commit - a registry or network error in the checkout,
-# the default branch fetch, the mise download or the package resolve, or a
-# gate step that failed on the runner rather than on the code - can go green
+# the default branch fetch, the `linux` job's curl install from the Ubuntu
+# package archive, the mise download or the package resolve, or a gate step
+# that failed on the runner rather than on the code - can go green
 # on a re-run from the run's page in the Actions tab. A failure the tagged
 # commit itself causes (it is not on the default branch, the tag and the
 # version constant name different versions, the gate is red) fails the same
@@ -223,6 +224,14 @@ jobs:
 
       - name: Print the Swift toolchain
         run: swift --version
+
+      # The image carries no curl or wget, which the mise download needs:
+      # both come from the image's Ubuntu 24.04 package archive.
+      - name: Install curl for the mise download
+        run: |
+          set -eu
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends ca-certificates curl
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:

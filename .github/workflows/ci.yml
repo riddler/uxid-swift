@@ -17,7 +17,9 @@ name: CI
 #
 # Both images are pinned by the digest of their multi-architecture index,
 # with the tag the digest was read from in a trailing comment, so a re-push
-# of the tag cannot change what CI runs. Every action in every job is pinned
+# of the tag cannot change what CI runs. Neither image carries curl, which
+# the mise download needs, so each Linux job installs it from the image's
+# Ubuntu package archive first. Every action in every job is pinned
 # to a full commit SHA, with its version in a trailing comment, as every
 # action in release.yml is.
 
@@ -124,6 +126,14 @@ jobs:
       - name: Print the Swift toolchain
         run: swift --version
 
+      # The image carries no curl or wget, which the mise download needs:
+      # both come from the image's Ubuntu 24.04 package archive.
+      - name: Install curl for the mise download
+        run: |
+          set -eu
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends ca-certificates curl
+
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: 2026.8.2
@@ -168,6 +178,14 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
+
+      # The image carries no curl or wget, which the mise download needs:
+      # both come from the image's Ubuntu 24.04 package archive.
+      - name: Install curl for the mise download
+        run: |
+          set -eu
+          apt-get update -q
+          apt-get install -y -q --no-install-recommends ca-certificates curl
 
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
