@@ -72,6 +72,12 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Every `run:` step runs in bash. Without this, a step in a container job
+# runs in sh, which has no pipefail.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   macos:
     name: Verify the tag (macOS)
