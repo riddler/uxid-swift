@@ -1,0 +1,260 @@
+name: Release
+
+# Verifies a pushed version tag. It publishes nothing: a Swift package has
+# no registry upload, because SwiftPM resolves a version from its git tag,
+# so the pushed tag is the release, whatever this workflow concludes. A
+# consumer can resolve the version from the moment the tag is pushed.
+#
+# It runs on the push of a tag matching `v*.*.*`, and on nothing else - no
+# branch push, no pull request, no manual dispatch. A tag filter cannot say
+# which branch the tagged commit is on, so each job checks that itself.
+#
+# Two jobs, the same checks on two platforms, each on the tagged commit
+# (github.sha):
+#
+# - `macos` runs on the Swift of the Xcode it selects by path, as ci.yml's
+#   `macos` job does.
+# - `linux` runs in the official Swift 6.3 image on Ubuntu 24.04 (noble),
+#   pinned by the digest of its multi-architecture index, as ci.yml's
+#   `linux` job is.
+#
+# Each job, in order, before mise is installed or the gate runs: fetches
+# the default branch and stops unless the tagged commit is on it; stops
+# unless the tag is `v` followed by the version constant `Uxid.version` in
+# Sources/Uxid/Version.swift at the tagged commit. Then it runs the full
+# quality gate, stops if the gate left a changed or untracked file, and
+# prints the package's Swift Package Index address. The index lists the
+# package only once the operator has submitted it there, which happens after
+# the first tag; this workflow submits nothing.
+#
+# Permissions: contents: read, for the whole workflow and in each job, and
+# no other. No job asks for an OIDC token, reads a secret, writes to the
+# repository or authenticates to a registry, and none creates, moves or
+# deletes a tag. The checkouts and the mise download use the run's automatic
+# GITHUB_TOKEN, which these blocks limit to reading the repository's
+# contents. Every action in every job is pinned to a full commit SHA, with
+# its version in a trailing comment, as every action in ci.yml is.
+#
+# What a failure leaves behind. A red run leaves the tag in place: nothing
+# here moves or deletes it, and the tag ruleset the operator sets on this
+# repository before the first tag restricts updating and deleting `v*` tags.
+# The version the tag names stays resolvable by SwiftPM. A version found
+# broken - a red check here on a cause in the tagged commit, or a defect
+# found later - is fixed by a new patch version, through a new release prep
+# and the tag that names it, never by moving or deleting a pushed tag.
+#
+# Re-runs. Neither job writes anything, so a re-run of either or both jobs
+# repeats the same checks from the start. A run that failed for a reason
+# outside the tagged commit - a registry or network error in the checkout,
+# the default branch fetch, the mise download or the package resolve, or a
+# gate step that failed on the runner rather than on the code - can go green
+# on a re-run from the run's page in the Actions tab. A failure the tagged
+# commit itself causes (it is not on the default branch, the tag and the
+# version constant name different versions, the gate is red) fails the same
+# way on every re-run.
+#
+# This file records the release decision for this repository, which keeps
+# no decision records (CLAUDE.md, "Agent authority in this repo": the
+# "Release preps" paragraphs). A failed run is re-run from its Actions page,
+# never worked round by hand.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+
+# One run per tag, and a run in progress is never cancelled.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    name: Verify the tag (macOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+
+    steps:
+      # The tagged commit, by SHA. Full history: the ancestry check below
+      # walks it. No credential is kept in the checkout's git config; the
+      # default branch fetch below reads this public repository without one.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      # The default branch is read from the push event itself, never written
+      # here, so a renamed default branch needs no edit to this file.
+      - name: Check the tagged commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test -n "$DEFAULT_BRANCH" || { echo "::error::the push event names no default branch" >&2; exit 1; }
+          git fetch --no-tags origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          if ! git merge-base --is-ancestor "$commit" "origin/${DEFAULT_BRANCH}"; then
+            echo "::error::${GITHUB_REF_NAME} is on ${commit}, which is not on ${DEFAULT_BRANCH}" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is on ${commit}, which is on ${DEFAULT_BRANCH}"
+
+      # The version constant is read with sed: the one line of
+      # Sources/Uxid/Version.swift that declares `public static let version`
+      # with a string literal. The step stops unless exactly one such line
+      # exists and its string is the tag without its leading `v`.
+      - name: Check the tag names the version constant
+        run: |
+          set -euo pipefail
+          file=Sources/Uxid/Version.swift
+          found="$(sed -n 's/^[[:space:]]*public static let version = "\([^"]*\)"[[:space:]]*$/\1/p' "$file")"
+          count="$(printf '%s' "$found" | grep -c '' || true)"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::expected one version constant in ${file}, found ${count}" >&2
+            exit 1
+          fi
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$tag_version" != "$found" ]; then
+            echo "::error::${GITHUB_REF_NAME} names ${tag_version} but Uxid.version at the tagged commit is ${found}" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} matches Uxid.version ${found} in ${file}"
+
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          sudo xcode-select --switch /Applications/Xcode_26.6.app
+          xcodebuild -version
+          swift --version
+
+      # No tool cache is restored in this workflow: a release check installs
+      # its tools fresh rather than from a cache another run wrote.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.8.2
+          cache: false
+
+      # The command is read out of .claude/wurk.json (gate.full), the gate an
+      # agent must have green before committing, exactly as ci.yml reads it.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          cmd=()
+          while IFS= read -r part; do cmd+=("$part"); done < <(swift - <<'SWIFT'
+          import Foundation
+          let data = try Data(contentsOf: URL(fileURLWithPath: ".claude/wurk.json"))
+          let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+          guard let full = (root?["gate"] as? [String: Any])?["full"] as? [String] else {
+            fatalError("gate.full is not a list of strings")
+          }
+          for part in full { print(part) }
+          SWIFT
+          )
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          echo "gate command (.claude/wurk.json gate.full): ${cmd[*]}"
+          "${cmd[@]}"
+
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::the gate left changed or untracked files" >&2
+            exit 1
+          fi
+
+      - name: Print the package index address
+        run: echo "https://swiftpackageindex.com/${GITHUB_REPOSITORY}"
+
+  linux:
+    name: Verify the tag (Linux, Swift 6.3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: swift@sha256:c2f3ac2eb806ce43f68859c3d52bd3bb1cfc88672fb3a948b76e136d98e39278 # 6.3-noble
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check the tagged commit is on the default branch
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test -n "$DEFAULT_BRANCH" || { echo "::error::the push event names no default branch" >&2; exit 1; }
+          git fetch --no-tags origin "+refs/heads/${DEFAULT_BRANCH}:refs/remotes/origin/${DEFAULT_BRANCH}"
+          commit="$(git rev-parse 'HEAD^{commit}')"
+          if ! git merge-base --is-ancestor "$commit" "origin/${DEFAULT_BRANCH}"; then
+            echo "::error::${GITHUB_REF_NAME} is on ${commit}, which is not on ${DEFAULT_BRANCH}" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} is on ${commit}, which is on ${DEFAULT_BRANCH}"
+
+      - name: Check the tag names the version constant
+        run: |
+          set -euo pipefail
+          file=Sources/Uxid/Version.swift
+          found="$(sed -n 's/^[[:space:]]*public static let version = "\([^"]*\)"[[:space:]]*$/\1/p' "$file")"
+          count="$(printf '%s' "$found" | grep -c '' || true)"
+          if [ "$count" -ne 1 ]; then
+            echo "::error::expected one version constant in ${file}, found ${count}" >&2
+            exit 1
+          fi
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$tag_version" != "$found" ]; then
+            echo "::error::${GITHUB_REF_NAME} names ${tag_version} but Uxid.version at the tagged commit is ${found}" >&2
+            exit 1
+          fi
+          echo "${GITHUB_REF_NAME} matches Uxid.version ${found} in ${file}"
+
+      - name: Print the Swift toolchain
+        run: swift --version
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.8.2
+          cache: false
+
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          cmd=()
+          while IFS= read -r part; do cmd+=("$part"); done < <(swift - <<'SWIFT'
+          import Foundation
+          let data = try Data(contentsOf: URL(fileURLWithPath: ".claude/wurk.json"))
+          let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+          guard let full = (root?["gate"] as? [String: Any])?["full"] as? [String] else {
+            fatalError("gate.full is not a list of strings")
+          }
+          for part in full { print(part) }
+          SWIFT
+          )
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          echo "gate command (.claude/wurk.json gate.full): ${cmd[*]}"
+          "${cmd[@]}"
+
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::the gate left changed or untracked files" >&2
+            exit 1
+          fi
+
+      - name: Print the package index address
+        run: echo "https://swiftpackageindex.com/${GITHUB_REPOSITORY}"
