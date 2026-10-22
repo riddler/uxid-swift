@@ -51,7 +51,7 @@ should do the work, stop before the irreversible step, and report.
 | `bd close <id>` | never for a mirrored bead whose other half is not merged to its own repo's `origin/main`; a mirrored bead whose other half has ALSO landed may be closed by the campaign conductor under a consent naming this exception, both halves together, each verified against its remote; otherwise the operator's call | for a bead whose description carries a `mirrors:` line while its other half is unlanded, campaign consent included |
 | `bd dolt push` | bead state changed locally **and** the git side of the same change has already reached `origin`; inside a campaign, the conductor pushes (atomically across the campaign's trackers) | as a way to publish beads for work that is not on `origin/main` yet |
 | a release prep (a version bump and a changelog promotion) and its tag | a release bead a campaign consent names, or the operator names in their own words; the tag once that prep is merged to `origin/main`, naming its version at the merged commit | on any other bead or on `main`; the tag before the prep is on `origin/main` |
-| a release: a version of this package, the tags that make one, a package index | never beyond the tag the row above allows - a version of this package exists when its tag is pushed, because SwiftPM resolves versions from git tags, and that tag is pushed only after the release prep merges; the tags are protected by a tag ruleset the operator sets on this repository before the first tag; an agent or a session never moves or deletes a pushed tag, never changes the ruleset or any other repository setting, and never submits the package to a package index (the Swift Package Index submission is the operator's step); the release workflow (`.github/workflows/release.yml`, which a later change adds) only verifies the pushed tag | always - a failed workflow is re-run from its Actions page, never worked round by hand, and a broken version is fixed by a new patch version, never by moving its tag |
+| a release: a version of this package, the tags that make one, a package index | never beyond the tag the row above allows - a version of this package exists when its tag is pushed, because SwiftPM resolves versions from git tags, and that tag is pushed only after the release prep merges; the tags are protected by a tag ruleset the operator sets on this repository before the first tag; an agent or a session never moves or deletes a pushed tag, never changes the ruleset or any other repository setting, and never submits the package to a package index (the Swift Package Index submission is the operator's step); the release workflow (`.github/workflows/release.yml`) only verifies the pushed tag | always - a failed workflow is re-run from its Actions page, never worked round by hand, and a broken version is fixed by a new patch version, never by moving its tag |
 
 The organizing principle: the human gate belongs where an action stops being
 reversible. A commit on a per-bead branch is undone with
@@ -103,10 +103,9 @@ deletions, leaving creation allowed), so a released version can never be
 moved under its consumers; and after the first tag, the package's submission
 to the Swift Package Index. No agent moves or deletes a pushed tag, changes
 the ruleset, or submits the package to an index. The release workflow
-(`.github/workflows/release.yml`, which a later change adds) runs on the tag
-push and verifies the tag on macOS and Linux with read-only access to the
-repository's contents; it uploads nothing and holds no write permission. Until
-it is on `main`, nothing verifies a pushed tag. A failed workflow is re-run
+(`.github/workflows/release.yml`) runs on the tag push and verifies the tag
+on macOS and Linux with read-only access to the repository's contents; it
+uploads nothing and holds no write permission. A failed workflow is re-run
 from its Actions page, never worked round by hand; a version found broken
 after its tag is pushed is fixed by a new patch version, never by moving the
 tag. This repository has no repository secret, and no workflow needs
@@ -159,14 +158,15 @@ The tree on `main` today holds the package manifest (`Package.swift`, with
 `Package.resolved` pinning the documentation plugin), the module `Uxid` with
 only the namespace enum and its version constant (`Sources/Uxid/Version.swift`),
 a Swift Testing target (`Tests/UxidTests/`), the gate tasks (`mise.toml`,
-`.swift-format`, `scripts/coverage-floor.sh`), `LICENSE`, `CHANGELOG.md`, these
+`.swift-format`, `scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
+the release workflow (`.github/workflows/release.yml`), `LICENSE`,
+`CHANGELOG.md` with the fragment rule in `changelog.d/README.md`, these
 agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
 manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
 tracker files under `.beads/` and a `.gitignore`. The generation, decoding and
-validity checks, CI, the release workflow and the vendored corpus arrive with
-later changes; until they do, the sentences in this file about the 1.0.0
-package's API, its corpus and its workflows describe the target, not the
-current tree.
+validity checks and the vendored corpus arrive with later changes; until they
+do, the sentences in this file about the 1.0.0 package's API and its corpus
+describe the target, not the current tree.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
@@ -207,10 +207,11 @@ has one the floor passes and says so; the first executable line under
 
 Locally the gate runs on the system Swift toolchain (Xcode's `swift`), not on
 one mise installs. The toolchain floor is declared separately:
-`swift-tools-version: 6.0` in `Package.swift`. CI, once it lands, runs the
-full gate on macOS, builds and tests on Linux in the `swift:6.3-noble` image,
-and proves the floor in the `swift:6.0-noble` image; the gate toolchain alone
-does not prove it.
+`swift-tools-version: 6.0` in `Package.swift`. CI (`.github/workflows/ci.yml`)
+runs the full gate on macOS on the Swift of the Xcode it selects, runs the
+same full gate on Linux in the `swift:6.3-noble` image, and proves the floor
+by building and testing in the `swift:6.0-noble` image; the gate toolchain
+alone does not prove it. Both images are pinned by digest.
 
 ### This repo's own gate rules
 
@@ -279,7 +280,7 @@ the code that later changes add.
   test-only seam lives in the library source (`Sources/Uxid/`).
 - **Swift 6.** `swift-tools-version: 6.0`, the Swift 6 language mode, Swift
   Testing, `swift format`, DocC through swift-docc-plugin, and CI on macOS and
-  Linux once CI lands (ruled by the operator, 2026-10-21). The platforms are
+  Linux (ruled by the operator, 2026-10-21). The platforms are
   macOS 15, iOS 18, tvOS 18, watchOS 11 and visionOS 2, the first releases
   with the `Synchronization` module, and Linux with no floor beyond the Swift
   6.0 toolchain (decided by the conductor under a standing consent,

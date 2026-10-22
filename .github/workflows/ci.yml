@@ -1,0 +1,188 @@
+name: CI
+
+# Three jobs, each on a pull request, a push to main and a manual dispatch:
+#
+# - `macos` runs the full quality gate - the command an agent must have
+#   green before committing - on macOS, on the Swift of the Xcode it selects
+#   by path below.
+# - `linux` runs the same full gate on Linux, in the official Swift 6.3
+#   image on Ubuntu 24.04 (noble), so the build, the tests, the coverage
+#   floor (scripts/coverage-floor.sh, which finds the test binary and
+#   llvm-cov differently on Linux) and the documentation build are proven
+#   there too.
+# - `floor` builds and tests on the oldest toolchain Package.swift admits
+#   (`swift-tools-version: 6.0`), in the official Swift 6.0 noble image. It
+#   runs the build and the tests only: `swift format` and the documentation
+#   build are checked by the two gate jobs, on the gate's toolchain.
+#
+# Both images are pinned by the digest of their multi-architecture index,
+# with the tag the digest was read from in a trailing comment, so a re-push
+# of the tag cannot change what CI runs. Every action in every job is pinned
+# to a full commit SHA, with its version in a trailing comment, as every
+# action in release.yml is.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Read-only: nothing here writes to the repository, asks for an OIDC token,
+# reads a secret or authenticates to a registry. The checkout and the mise
+# download use the run's automatic GITHUB_TOKEN, which this block limits to
+# reading the repository's contents.
+permissions:
+  contents: read
+
+# A newer push to the same branch or pull request supersedes the run in
+# progress.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    name: Full quality gate (macOS)
+    runs-on: macos-26
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      # The Swift toolchain is the one in the Xcode selected here by path,
+      # not whichever Xcode the runner image makes its default. The step
+      # fails when the image no longer carries that Xcode.
+      - name: Select Xcode 26.6
+        run: |
+          set -euo pipefail
+          sudo xcode-select --switch /Applications/Xcode_26.6.app
+          xcodebuild -version
+          swift --version
+
+      # mise.toml pins no tool; mise runs the gate's tasks. No tool cache
+      # is restored.
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.8.2
+          cache: false
+
+      # The gate is mise.toml's `gate` task: it prints `swift --version`,
+      # then runs swift format, the build and the tests with warnings as
+      # errors, the tests with coverage, the coverage floor and the DocC
+      # build. The command is read out of .claude/wurk.json (gate.full)
+      # rather than written here, so the gate CI runs and the gate an agent
+      # must have green are one definition with one place to change it. It
+      # is read and executed inside the step rather than interpolated into
+      # `run:`, so a repository file never reaches the shell as expression
+      # text. It is read with a Swift script on the job's own toolchain,
+      # the one JSON reader every runner and image here carries.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          cmd=()
+          while IFS= read -r part; do cmd+=("$part"); done < <(swift - <<'SWIFT'
+          import Foundation
+          let data = try Data(contentsOf: URL(fileURLWithPath: ".claude/wurk.json"))
+          let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+          guard let full = (root?["gate"] as? [String: Any])?["full"] as? [String] else {
+            fatalError("gate.full is not a list of strings")
+          }
+          for part in full { print(part) }
+          SWIFT
+          )
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          echo "gate command (.claude/wurk.json gate.full): ${cmd[*]}"
+          "${cmd[@]}"
+
+      # A gate that rewrites a tracked file or leaves an untracked file that
+      # is not ignored passes locally only because the change is then
+      # committed; here it is a failure.
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::the gate left changed or untracked files" >&2
+            exit 1
+          fi
+
+  linux:
+    name: Full quality gate (Linux, Swift 6.3)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: swift@sha256:c2f3ac2eb806ce43f68859c3d52bd3bb1cfc88672fb3a948b76e136d98e39278 # 6.3-noble
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Print the Swift toolchain
+        run: swift --version
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.8.2
+          cache: false
+
+      # The same gate as the `macos` job, read the same way.
+      - name: Full quality gate
+        run: |
+          set -euo pipefail
+          cmd=()
+          while IFS= read -r part; do cmd+=("$part"); done < <(swift - <<'SWIFT'
+          import Foundation
+          let data = try Data(contentsOf: URL(fileURLWithPath: ".claude/wurk.json"))
+          let root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+          guard let full = (root?["gate"] as? [String: Any])?["full"] as? [String] else {
+            fatalError("gate.full is not a list of strings")
+          }
+          for part in full { print(part) }
+          SWIFT
+          )
+          test "${#cmd[@]}" -gt 0 || { echo "::error::gate.full is empty" >&2; exit 1; }
+          echo "gate command (.claude/wurk.json gate.full): ${cmd[*]}"
+          "${cmd[@]}"
+
+      - name: Check the gate left the checkout clean
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --short
+            echo "::error::the gate left changed or untracked files" >&2
+            exit 1
+          fi
+
+  floor:
+    name: Build and tests (Linux, Swift 6.0 floor)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: swift@sha256:f19aea3f9a889df5884e1186e60be74869613477d99656b598c115a4b91af8a1 # 6.0-noble
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: 2026.8.2
+          cache: false
+
+      # mise.toml's own tasks, so the floor builds and tests exactly as the
+      # gate does: the toolchain print, the build of the library and the
+      # tests with warnings as errors, and the tests. Resolving the package
+      # here also proves Package.resolved resolves on tools 6.0.
+      - name: Print the Swift toolchain
+        run: mise run gate:toolchain
+
+      - name: Build with warnings as errors
+        run: mise run gate:build
+
+      - name: Test with warnings as errors
+        run: mise run gate:test
