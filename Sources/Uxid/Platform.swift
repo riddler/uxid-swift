@@ -31,7 +31,10 @@ extension Uxid {
 
   /// The platform's real-time clock in whole milliseconds since the Unix
   /// epoch, read with `clock_gettime(CLOCK_REALTIME)`. A failed read and a
-  /// clock set before the epoch stop the process with a message.
+  /// clock set before the epoch stop the process with a message. The
+  /// default clock of ``Uxid/DecodeOptions``.
+  @usableFromInline
+  @Sendable
   static func clockMilliseconds() -> UInt64 {
     var now = timespec()
     let status = clock_gettime(CLOCK_REALTIME, &now)

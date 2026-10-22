@@ -12,6 +12,38 @@ enum Base32 {
     letterCase == .upper ? upper : lower
   }
 
+  /// Each ASCII byte's symbol value, or -1 for a byte that is no symbol in
+  /// either case. Bytes from 128 up are never symbols.
+  private static let values: [Int8] = {
+    var table = [Int8](repeating: -1, count: 128)
+    for (value, symbol) in lower.enumerated() {
+      table[Int(symbol)] = Int8(value)
+    }
+    for (value, symbol) in upper.enumerated() {
+      table[Int(symbol)] = Int8(value)
+    }
+    return table
+  }()
+
+  /// The value of the symbol `byte` in either case, or `nil` when the byte is
+  /// not a symbol: no reading substitution is applied, so `I`, `L`, `O`, `U`
+  /// and a hyphen are refused like any other byte outside the table.
+  static func value(_ byte: UInt8) -> UInt64? {
+    guard byte < 128 else { return nil }
+    let value = values[Int(byte)]
+    return value < 0 ? nil : UInt64(value)
+  }
+
+  /// Reads `count` symbols of `bytes` from `start` as one integer, most
+  /// significant first. The caller has checked that every byte is a symbol.
+  static func readInteger(_ bytes: [UInt8], from start: Int, characters count: Int) -> UInt64 {
+    var result: UInt64 = 0
+    for index in start..<(start + count) {
+      result = (result << 5) | (value(bytes[index]) ?? 0)
+    }
+    return result
+  }
+
   /// Appends the low `5 x count` bits of `value` as `count` characters, so a
   /// value narrower than that (the 48-bit standard time in 10 characters)
   /// has its short group first.
