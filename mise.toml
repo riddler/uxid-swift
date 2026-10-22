@@ -1,0 +1,55 @@
+# mise config for uxid-swift: the gate tasks.
+#
+#   mise run gate:loop    inner loop: build and tests
+#   mise run gate         full gate, the advancement gate
+#
+# mise pins no tool here: the gate runs on the system Swift toolchain (Xcode's
+# `swift` on macOS), and prints `swift --version` first so its log names that
+# toolchain. The toolchain floor is `swift-tools-version: 6.0` in
+# Package.swift, which this toolchain does not prove on its own.
+#
+# Warnings are errors in the gate's build and test commands, never in
+# Package.swift: an unsafe flag there would make the package unusable as a
+# dependency.
+
+[tasks."gate:toolchain"]
+description = "Print the Swift toolchain the gate runs on"
+run = "swift --version"
+
+[tasks."gate:format"]
+description = "Fail on any swift format lint finding"
+run = "swift format lint --strict --recursive --parallel Package.swift Sources Tests"
+
+[tasks."gate:build"]
+description = "Build the library and the tests, warnings as errors"
+run = "swift build --build-tests -Xswiftc -warnings-as-errors"
+
+[tasks."gate:test"]
+description = "Run the tests with code coverage, warnings as errors"
+run = "swift test --enable-code-coverage -Xswiftc -warnings-as-errors"
+
+[tasks."gate:coverage"]
+description = "Fail under 90 percent of the library's lines"
+run = "scripts/coverage-floor.sh 90"
+
+[tasks."gate:docs"]
+description = "Build the DocC documentation, warnings as errors"
+run = "swift package generate-documentation --target Uxid --warnings-as-errors"
+
+[tasks."gate:loop"]
+description = "Inner loop: build and tests"
+run = [
+  "swift build --build-tests",
+  "swift test",
+]
+
+[tasks.gate]
+description = "Full gate: toolchain, format, build, tests with coverage, coverage floor, docs"
+run = [
+  "mise run gate:toolchain",
+  "mise run gate:format",
+  "mise run gate:build",
+  "mise run gate:test",
+  "mise run gate:coverage",
+  "mise run gate:docs",
+]

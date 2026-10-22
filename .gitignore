@@ -2,6 +2,10 @@
 .DS_Store
 *.swp
 
+# SwiftPM build output and per-user workspace state
+.build/
+.swiftpm/
+
 # Beads / Dolt files (added by bd init)
 .dolt/
 *.db
