@@ -43,8 +43,9 @@ name: Release
 # found later - is fixed by a new patch version, through a new release prep
 # and the tag that names it, never by moving or deleting a pushed tag.
 #
-# Re-runs. Neither job writes anything, so a re-run of either or both jobs
-# repeats the same checks from the start. A run that failed for a reason
+# Re-runs. Neither job writes to the repository, to a registry or to any
+# store a later attempt reads, so a re-run of either or both jobs repeats
+# the same checks from the start. A run that failed for a reason
 # outside the tagged commit - a registry or network error in the checkout,
 # the default branch fetch, the `linux` job's curl install from the Ubuntu
 # package archive, the mise download or the package resolve, or a gate step
