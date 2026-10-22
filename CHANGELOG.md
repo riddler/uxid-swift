@@ -23,8 +23,10 @@ standard library and the platform C library. A broken precondition stops the
 process rather than throwing: an empty delimiter, a negative `randSize`, a time
 above `Uxid.maxTime` or a decoder clock above it when a compact time is read, a
 byte source or draw source that returns the wrong count or a step out of range,
-a monotonic request with no random field to step, or a monotonic field that
-overflows in the last millisecond a time holds. It is checked against the
+a monotonic request with no random field to step, a monotonic field that
+overflows in the last millisecond a time holds, or the platform's real-time
+clock, read by default when no time or decoder clock is given, failing to read
+or reading earlier than the Unix epoch. It is checked against the
 conformance corpus vendored from riddler/uxid-ex at the tag `v2.10.0`
 (`conformance/SOURCE.json` records the tag, its commit and the corpus hash),
 and every case in it passes with no skip list.
