@@ -53,6 +53,18 @@ extension Uxid {
       case .xl: return 10
       }
     }
+
+    /// The number of hash characters a deterministic body carries at this
+    /// size, after its marker, so the body has this size's standard length.
+    var hashCharacters: Int {
+      switch self {
+      case .xs: return 9
+      case .s: return 13
+      case .m: return 17
+      case .l: return 21
+      case .xl: return 25
+      }
+    }
   }
 
   /// The letter case of an id's body. Case never applies to the prefix.
@@ -82,13 +94,44 @@ extension Uxid {
   /// Every property has a default, so `Uxid.Options()` asks for a time-based
   /// id with no prefix, size ``Uxid/Size/xl``, the size's random field width,
   /// standard time, lower case, the delimiter `_`, the current time and random
-  /// bytes from `SystemRandomNumberGenerator`.
+  /// bytes from `SystemRandomNumberGenerator`. Setting ``from`` asks for a
+  /// deterministic id instead.
+  ///
+  /// A property that states a precondition is a programmer error when broken:
+  /// ``Uxid/generate(_:)`` stops the process rather than throwing, since the
+  /// closed set of ``Uxid/Error`` names only the refusals the wire format
+  /// lists. A caller holding a value from outside checks it first; for the
+  /// time, against ``Uxid/maxTime``.
   public struct Options: Sendable {
     /// The resource prefix, written before the delimiter exactly as given
     /// (case never applies to it). It may contain the delimiter. The empty
     /// string, the default, is no prefix: the id is the bare body, with no
     /// delimiter.
     public var prefix: String
+
+    /// The string a deterministic id is derived from; `nil`, the default,
+    /// builds a time-based id. The empty string is a string to derive from,
+    /// not none.
+    ///
+    /// The body is the marker (`z`, or `Z` in upper case) and the first
+    /// 5 bits per hash character of the SHA-256 digest of the prefix's UTF-8
+    /// bytes (none for no prefix), a zero byte, this string's UTF-8 bytes, a
+    /// zero byte and one byte holding the count of hash characters. The size
+    /// sets that count: ``Uxid/Size/xs`` 9, ``Uxid/Size/s`` 13,
+    /// ``Uxid/Size/m`` 17, ``Uxid/Size/l`` 21 and ``Uxid/Size/xl`` 25, so the
+    /// body has a standard body's length, and the same string at two sizes or
+    /// under two prefixes gives unrelated bodies. ``case`` and ``delimiter``
+    /// apply as they do to a time-based id; case is not part of the hash
+    /// input.
+    ///
+    /// A deterministic id carries no time and no random field, so ``time``,
+    /// ``compactTime``, ``randSize`` and ``byteSource`` are not read (there is
+    /// no compact deterministic form), and ``rand`` set beside this property
+    /// is refused with ``Uxid/Error/randWithFrom``.
+    ///
+    /// The id is exactly as guessable as the string: anyone who knows the
+    /// prefix, the string and the size can build it.
+    public var from: String?
 
     /// The size, which fixes the random field's width and so the body
     /// length. The default is ``Uxid/Size/xl``.
@@ -101,6 +144,8 @@ extension Uxid {
     /// width the size table does not list has the same layout, but its length
     /// is one a decoder refuses.
     ///
+    /// Not read for a deterministic id (``from``).
+    ///
     /// - Precondition: Not negative.
     public var randSize: Int?
 
@@ -110,7 +155,8 @@ extension Uxid {
     ///
     /// `nil`, the default, is standard time, as `false` is. A compact time
     /// whose first character would be the deterministic marker is refused
-    /// with ``Uxid/Error/compactTimeOutOfRange``.
+    /// with ``Uxid/Error/compactTimeOutOfRange``. Not read for a
+    /// deterministic id (``from``).
     public var compactTime: Bool?
 
     /// The letter case of the body. The default is ``Uxid/Case/lower``.
@@ -121,14 +167,18 @@ extension Uxid {
     /// one. A delimiter made of alphabet characters makes an id ambiguous to
     /// read and is not supported.
     ///
-    /// - Precondition: Not empty.
+    /// - Precondition: Not empty, for a time-based and a deterministic id
+    ///   alike.
     public var delimiter: String
 
     /// The time the id carries, in milliseconds since the Unix epoch; `nil`,
-    /// the default, reads the platform's real-time clock at the call.
+    /// the default, reads the platform's real-time clock at the call. Not
+    /// read for a deterministic id (``from``).
     ///
-    /// - Precondition: At most 2^48 - 1, the latest time a standard time
-    ///   field holds.
+    /// - Precondition: At most ``Uxid/maxTime`` (2^48 - 1), the latest time a
+    ///   standard time field holds. When it is `nil`, the clock must read
+    ///   without failing, no earlier than the Unix epoch and no later than
+    ///   ``Uxid/maxTime``.
     public var time: UInt64?
 
     /// Fixed bytes for the random field, for reproducible vectors such as
@@ -140,13 +190,15 @@ extension Uxid {
     /// field's width (the size's, or ``randSize``), or the request is refused
     /// with ``Uxid/Error/randWidthMismatch``; size ``Uxid/Size/xs`` in
     /// standard time has no random field, so only an empty array fits it.
+    /// Set beside ``from``, any array, the empty one included, is refused
+    /// with ``Uxid/Error/randWithFrom``.
     public var rand: [UInt8]?
 
     /// The source of the random field's bytes; the default reads
     /// `SystemRandomNumberGenerator`.
     ///
-    /// It is called once per id, and not at all when ``rand`` is set or
-    /// the random field is empty.
+    /// It is called once per id, and not at all when ``rand`` is set, the
+    /// random field is empty or the id is deterministic (``from``).
     ///
     /// - Precondition: The source returns exactly the count it is asked for.
     public var byteSource: ByteSource
@@ -156,6 +208,8 @@ extension Uxid {
     ///
     /// - Parameters:
     ///   - prefix: The resource prefix; the empty string is no prefix.
+    ///   - from: The string a deterministic id is derived from, or `nil` for a
+    ///     time-based id.
     ///   - size: The size.
     ///   - randSize: An explicit random field width in bytes, or `nil` for the
     ///     size's width.
@@ -169,6 +223,7 @@ extension Uxid {
     ///   - byteSource: The source of the random field's bytes.
     public init(
       prefix: String = "",
+      from: String? = nil,
       size: Size = .xl,
       randSize: Int? = nil,
       compactTime: Bool? = nil,
@@ -179,6 +234,7 @@ extension Uxid {
       byteSource: @escaping ByteSource = Uxid.systemRandomBytes
     ) {
       self.prefix = prefix
+      self.from = from
       self.size = size
       self.randSize = randSize
       self.compactTime = compactTime

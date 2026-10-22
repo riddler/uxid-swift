@@ -156,19 +156,21 @@ imports no Foundation), and takes its random bytes from
 
 The tree on `main` today holds the package manifest (`Package.swift`, with
 `Package.resolved` pinning the documentation plugin), the module `Uxid` with
-the namespace enum and its version constant (`Sources/Uxid/Version.swift`) and
-time-based generation (`Uxid.generate(_:)` with `Uxid.Options`, the `Size` and
-`Case` types and the closed set of `Uxid.Error` names), a Swift Testing target (`Tests/UxidTests/`), the gate tasks (`mise.toml`,
-`.swift-format`, `scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
+the namespace enum and its version constant (`Sources/Uxid/Version.swift`),
+time-based and deterministic generation (`Uxid.generate(_:)` with
+`Uxid.Options`, the `Size` and `Case` types, the time bound `Uxid.maxTime` and
+the closed set of `Uxid.Error` names) and the SHA-256 that deterministic ids
+hash with (`Sources/Uxid/SHA256.swift`), a Swift Testing target
+(`Tests/UxidTests/`), the gate tasks (`mise.toml`, `.swift-format`,
+`scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
 the release workflow (`.github/workflows/release.yml`), `LICENSE`,
 `CHANGELOG.md` with the fragment rule in `changelog.d/README.md`, these
 agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
 manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
-tracker files under `.beads/` and a `.gitignore`. Deterministic and monotonic
-generation, decoding, the validity checks and the vendored corpus arrive with
-later changes; until they
-do, the sentences in this file about the 1.0.0 package's API and its corpus
-describe the target, not the current tree.
+tracker files under `.beads/` and a `.gitignore`. Monotonic generation,
+decoding, the validity checks and the vendored corpus arrive with later
+changes; until they do, the sentences in this file about the 1.0.0 package's
+API and its corpus describe the target, not the current tree.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
