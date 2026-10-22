@@ -8,6 +8,11 @@
 # toolchain. The toolchain floor is `swift-tools-version: 6.0` in
 # Package.swift, which this toolchain does not prove on its own.
 #
+# The full gate checks the vendored conformance corpus (conformance/):
+# gate:corpus runs the corpus hash and case-count checks and every case of
+# every case file on their own, after the full test run, and fails unless
+# Swift Testing reports at least one of them run and none failed.
+#
 # Warnings are errors in the gate's build and test commands, never in
 # Package.swift: an unsafe flag there would make the package unusable as a
 # dependency.
@@ -32,6 +37,26 @@ run = "swift test --enable-code-coverage -Xswiftc -warnings-as-errors"
 description = "Fail under 90 percent of the library's lines"
 run = "scripts/coverage-floor.sh 90"
 
+[tasks."gate:corpus"]
+description = "Check the vendored corpus: its hash and case counts, then every case"
+# The same flags as gate:test, so nothing is rebuilt; it runs after
+# gate:coverage because it rewrites the coverage profile.
+run = '''
+#!/usr/bin/env bash
+set -euo pipefail
+status=0
+output="$(swift test --enable-code-coverage -Xswiftc -warnings-as-errors \
+  --filter 'UxidTests\.Corpus' 2>&1)" || status=$?
+printf '%s\n' "$output"
+if (( status != 0 )); then
+  exit "$status"
+fi
+if ! printf '%s\n' "$output" | grep -Eq 'Test run with [1-9][0-9]* tests? .*passed'; then
+  echo "gate:corpus: Swift Testing reported no corpus test run and passed" >&2
+  exit 1
+fi
+'''
+
 [tasks."gate:docs"]
 description = "Build the DocC documentation, warnings as errors"
 run = "swift package generate-documentation --target Uxid --warnings-as-errors"
@@ -44,12 +69,13 @@ run = [
 ]
 
 [tasks.gate]
-description = "Full gate: toolchain, format, build, tests with coverage, coverage floor, docs"
+description = "Full gate: toolchain, format, build, tests with coverage, coverage floor, corpus, docs"
 run = [
   "mise run gate:toolchain",
   "mise run gate:format",
   "mise run gate:build",
   "mise run gate:test",
   "mise run gate:coverage",
+  "mise run gate:corpus",
   "mise run gate:docs",
 ]

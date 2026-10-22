@@ -112,8 +112,8 @@ tag. This repository has no repository secret, and no workflow needs
 one: no agent or session creates, sets, reads or lists one, or runs
 `gh secret` against this repository. Merging the prep follows this file's
 merge row, and nothing else this file reserves for the operator changes. A
-prep is cut only on a green full gate, which will include the conformance
-corpus check.
+prep is cut only on a green full gate, which includes the conformance corpus
+check.
 
 This repository keeps no decision records (`docs/adr`). A release or gating
 decision is recorded here, in the authority table and the Release preps
@@ -121,10 +121,10 @@ paragraphs, and in the header of the workflow it governs; a change a user of
 the API could notice is a changelog fragment (Conventions, below). The ID
 format itself is not decided here: it is uxid-ex's wire-format spec,
 `guides/wire-format.md` in https://github.com/riddler/uxid-ex, read at the
-tag the vendored corpus names (`conformance/SOURCE.json`, once the corpus is
-vendored). That this repository keeps no decision records was decided by the
-conductor under a standing consent, 2026-10-21; a future API decision may
-start a `docs/adr` directory.
+tag the vendored corpus names (`conformance/SOURCE.json`). That this
+repository keeps no decision records was decided by the conductor under a
+standing consent, 2026-10-21; a future API decision may start a `docs/adr`
+directory.
 
 Widening this section is a decision for the operator to make and record here.
 An agent may draft the change; it does not adopt it.
@@ -166,19 +166,20 @@ with `Uxid.DecodeOptions`, `Uxid.Decoded` and the closed set of
 (`Uxid.isValid(_:delimiter:prefix:)` and `Uxid.isDeterministic(_:delimiter:)`),
 monotonic generation (`Uxid.Monotonic`, with its `DrawSource`), a Swift
 Testing target
-(`Tests/UxidTests/`), the gate tasks (`mise.toml`, `.swift-format`,
+(`Tests/UxidTests/`) with the conformance corpus runner, the conformance
+corpus vendored from uxid-ex (`conformance/`, its source recorded in
+`conformance/SOURCE.json`, with `.gitattributes` keeping its bytes exact),
+the gate tasks (`mise.toml`, `.swift-format`,
 `scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
 the release workflow (`.github/workflows/release.yml`), `LICENSE`,
 `CHANGELOG.md` with the fragment rule in `changelog.d/README.md`, these
 agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
 manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
-tracker files under `.beads/` and a `.gitignore`. The vendored corpus
-arrives with a later change; until it does, the sentences in this file about
-the 1.0.0 package's corpus describe the target, not the current tree.
+tracker files under `.beads/` and a `.gitignore`.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
-- **The corpus is the arbiter.** `conformance/` will hold the corpus
+- **The corpus is the arbiter.** `conformance/` holds the corpus
   vendored from uxid-ex at a release tag, its tag, commit and hash recorded in
   `conformance/SOURCE.json`. The vendored files are never edited, and every
   case passes with no skip list: a case this port cannot pass is reported
@@ -202,9 +203,11 @@ The full gate prints `swift --version` first and then runs
 the build of the library and the tests with warnings as errors (the
 `-warnings-as-errors` flag is passed by the gate, never set in
 `Package.swift`), `swift test --enable-code-coverage` on Swift Testing, the
-coverage floor, and the DocC documentation build with warnings as errors. The
-conformance corpus check joins the full gate when the corpus is vendored. The
-inner loop, `mise run gate:loop`, is the build and the tests.
+coverage floor, the conformance corpus check, and the DocC documentation build
+with warnings as errors. The corpus check (`gate:corpus`) runs the tests that
+recompute the corpus hash and each case count and the runner over every case
+of every case file, and fails unless Swift Testing reports them run and
+passed. The inner loop, `mise run gate:loop`, is the build and the tests.
 
 The coverage floor, `scripts/coverage-floor.sh`, exports the coverage data
 the test run wrote with `llvm-cov export` and fails under 90 percent of the

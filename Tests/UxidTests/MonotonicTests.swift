@@ -3,67 +3,6 @@ import Synchronization
 import Testing
 import Uxid
 
-/// One monotonic case from the conformance corpus: one generator's calls,
-/// the draws it makes and the ids it gives.
-struct MonotonicCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let prefix: String
-  let size: Uxid.Size
-  let compact: Bool
-  let times: [UInt64]
-  let initialSeed: UInt64
-  let steps: [UInt64]
-  let overflowSeed: UInt64?
-  let expected: [String]
-
-  var testDescription: String { id }
-}
-
-/// The cases of `conformance/monotonic.json` at uxid-ex v2.10.0, copied case
-/// by case (inputs and expected ids unchanged; a `null` prefix is `""`).
-private let monotonicCases: [MonotonicCase] = [
-  MonotonicCase(
-    id: "monotonic/xl-same-millisecond", prefix: "usr", size: .xl, compact: false,
-    times: [1_700_000_000_000, 1_700_000_000_000, 1_700_000_000_000, 1_700_000_000_000],
-    initialSeed: 123_456_789, steps: [1, 1_099_511_627_776, 42], overflowSeed: nil,
-    expected: [
-      "usr_01hf7yat0000000000003nqk8n", "usr_01hf7yat0000000000003nqk8p",
-      "usr_01hf7yat0000000001003nqk8p", "usr_01hf7yat0000000001003nqka0",
-    ]),
-  MonotonicCase(
-    id: "monotonic/m-clock-moves-back", prefix: "usr", size: .m, compact: false,
-    times: [1_700_000_000_000, 1_699_999_999_999, 1_699_999_999_990, 1_700_000_000_000],
-    initialSeed: 1000, steps: [5, 1_048_576, 7], overflowSeed: nil,
-    expected: [
-      "usr_01hf7yat00000000z8", "usr_01hf7yat00000000zd", "usr_01hf7yat00000100zd",
-      "usr_01hf7yat00000100zm",
-    ]),
-  MonotonicCase(
-    id: "monotonic/s-overflow-bumps-time", prefix: "usr", size: .s, compact: false,
-    times: [
-      1_700_000_000_000, 1_700_000_000_000, 1_700_000_000_000, 1_700_000_000_000,
-      1_700_000_000_000, 1_700_000_000_001,
-    ],
-    initialSeed: 65000, steps: [200, 250, 100, 7, 3], overflowSeed: 1234,
-    expected: [
-      "usr_01hf7yat00zqm0", "usr_01hf7yat00ztr0", "usr_01hf7yat00zyn0", "usr_01hf7yat010k90",
-      "usr_01hf7yat010kc1", "usr_01hf7yat010ke0",
-    ]),
-  MonotonicCase(
-    id: "monotonic/xs-compact-overflow-clock-back", prefix: "usr", size: .xs, compact: true,
-    times: [1_700_000_000_000, 1_700_000_000_000, 1_699_999_999_999],
-    initialSeed: 250, steps: [5, 16], overflowSeed: 9,
-    expected: ["usr_hf7yat00z2", "usr_hf7yat00z7", "usr_hf7yat0111"]),
-  MonotonicCase(
-    id: "monotonic/l-compact-single", prefix: "usr", size: .l, compact: true,
-    times: [1_700_000_000_000], initialSeed: 0, steps: [], overflowSeed: nil,
-    expected: ["usr_hf7yat000000000000000"]),
-  MonotonicCase(
-    id: "monotonic/s-compact-no-prefix-largest-step", prefix: "", size: .s, compact: true,
-    times: [1_700_000_000_000, 1_700_000_000_000], initialSeed: 0, steps: [4096],
-    overflowSeed: nil, expected: ["hf7yat0000000", "hf7yat0000800"]),
-]
-
 /// Replays known draws: each seed call answers the next of `seeds` (zero once
 /// they run out) as a big-endian field of the asked width, each step call the
 /// next of `steps` (one once they run out), and every call is logged.
@@ -82,6 +21,9 @@ final class ReplayDraws: Sendable {
 
   /// The calls made so far, each `seed` or `step` with its width.
   var log: [String] { queue.withLock { $0.log } }
+
+  /// The seeds and steps not drawn yet.
+  var remaining: Int { queue.withLock { $0.seeds.count + $0.steps.count } }
 
   var source: Uxid.Monotonic.DrawSource {
     Uxid.Monotonic.DrawSource(
@@ -153,21 +95,6 @@ private let lastCompactTime: UInt64 = 31 * (1 << 35) - 1
 
 @Suite("Monotonic")
 struct MonotonicTests {
-  @Test("corpus (sabotage: now <= T read as now == T -> id mismatch)", arguments: monotonicCases)
-  func corpus(_ testCase: MonotonicCase) {
-    let draws = ReplayDraws(
-      seeds: [testCase.initialSeed] + (testCase.overflowSeed.map { [$0] } ?? []),
-      steps: testCase.steps)
-    let generator = Uxid.Monotonic(draws: draws.source)
-    let ids = testCase.times.map { time in
-      call(
-        generator,
-        Uxid.Options(
-          prefix: testCase.prefix, size: testCase.size, compactTime: testCase.compact, time: time))
-    }
-    #expect(ids == testCase.expected)
-  }
-
   @Test("refusals (sabotage: from check removed -> outcome is an id)")
   func refusals() {
     let generator = Uxid.Monotonic()
