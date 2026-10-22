@@ -3,8 +3,9 @@ extension Uxid {
   ///
   /// The cases are a closed set: each is one generation error the wire-format
   /// specification lists, and its `rawValue` is that error's spelling in the
-  /// corpus, such as `rand_width_mismatch`. ``Uxid/generate(_:)`` throws it
-  /// with typed throws, so a caller's `catch` reads a `Uxid.Error` with no cast.
+  /// corpus, such as `rand_width_mismatch`. ``Uxid/generate(_:)`` and
+  /// ``Uxid/Monotonic/generate(_:)`` throw it with typed throws, so a caller's
+  /// `catch` reads a `Uxid.Error` with no cast.
   ///
   /// Inside the `Uxid` namespace the name `Error` means this type; the
   /// standard library's protocol is `Swift.Error`.

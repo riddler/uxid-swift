@@ -164,16 +164,17 @@ hash with (`Sources/Uxid/SHA256.swift`), decoding (`Uxid.decode(_:options:)`
 with `Uxid.DecodeOptions`, `Uxid.Decoded` and the closed set of
 `Uxid.DecodeError` reasons) and the validity checks
 (`Uxid.isValid(_:delimiter:prefix:)` and `Uxid.isDeterministic(_:delimiter:)`),
-a Swift Testing target
+monotonic generation (`Uxid.Monotonic`, with its `DrawSource`), a Swift
+Testing target
 (`Tests/UxidTests/`), the gate tasks (`mise.toml`, `.swift-format`,
 `scripts/coverage-floor.sh`), CI (`.github/workflows/ci.yml`),
 the release workflow (`.github/workflows/release.yml`), `LICENSE`,
 `CHANGELOG.md` with the fragment rule in `changelog.d/README.md`, these
 agent instructions (`CLAUDE.md`, with `AGENTS.md` a symlink to it), the wurk
 manifest (`.claude/wurk.json`), the session hook (`.claude/settings.json`), the
-tracker files under `.beads/` and a `.gitignore`. Monotonic generation and
-the vendored corpus arrive with later changes; until they do, the sentences in this file about the 1.0.0 package's
-API and its corpus describe the target, not the current tree.
+tracker files under `.beads/` and a `.gitignore`. The vendored corpus
+arrives with a later change; until it does, the sentences in this file about
+the 1.0.0 package's corpus describe the target, not the current tree.
 
 - **The package is `uxid`, from `https://github.com/riddler/uxid-swift`.**
   Version 1.0.0 is its first release, and its first tag.
