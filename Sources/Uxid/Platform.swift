@@ -30,11 +30,13 @@ extension Uxid {
   }
 
   /// The platform's real-time clock in whole milliseconds since the Unix
-  /// epoch, read with `clock_gettime(CLOCK_REALTIME)`.
+  /// epoch, read with `clock_gettime(CLOCK_REALTIME)`. A failed read and a
+  /// clock set before the epoch stop the process with a message.
   static func clockMilliseconds() -> UInt64 {
     var now = timespec()
     let status = clock_gettime(CLOCK_REALTIME, &now)
     precondition(status == 0, "clock_gettime(CLOCK_REALTIME) failed")
+    precondition(now.tv_sec >= 0, "the real-time clock reads before the Unix epoch")
     return UInt64(now.tv_sec) * 1000 + UInt64(now.tv_nsec) / 1_000_000
   }
 }

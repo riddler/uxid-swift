@@ -44,4 +44,26 @@ enum Base32 {
       out.append(table[Int(buffer)])
     }
   }
+
+  /// Appends the first `5 x count` bits of `bytes`, most significant bit
+  /// first, as `count` characters with no short group: the hash characters of
+  /// a deterministic body.
+  static func appendLeadingBits(
+    _ bytes: [UInt8], characters count: Int, case letterCase: Uxid.Case, to out: inout [UInt8]
+  ) {
+    let table = symbols(letterCase)
+    var buffer: UInt32 = 0
+    var bits = 0
+    var next = 0
+    for _ in 0..<count {
+      if bits < 5 {
+        buffer = (buffer << 8) | UInt32(bytes[next])
+        next += 1
+        bits += 8
+      }
+      bits -= 5
+      out.append(table[Int((buffer >> UInt32(bits)) & 31)])
+      buffer &= (1 << UInt32(bits)) - 1
+    }
+  }
 }
