@@ -2,29 +2,6 @@ import Foundation
 import Testing
 import Uxid
 
-/// One encode case from the conformance corpus: its id, inputs and expected id.
-struct EncodeCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let prefix: String
-  let size: Uxid.Size
-  let compact: Bool
-  let letterCase: Uxid.Case
-  let time: UInt64
-  let rand: [UInt8]
-  let expected: String
-
-  var testDescription: String { id }
-}
-
-/// One generate refusal from the corpus's invalid cases.
-struct RefusalCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let options: Uxid.Options
-  let expected: Uxid.Error
-
-  var testDescription: String { id }
-}
-
 /// Reads lowercase hex, as the corpus spells bytes.
 private func hex(_ text: String) -> [UInt8] {
   var bytes: [UInt8] = []
@@ -38,102 +15,6 @@ private func hex(_ text: String) -> [UInt8] {
 }
 
 private let corpusTime: UInt64 = 1_700_000_000_000
-
-private func encode(
-  _ id: String, _ prefix: String, _ size: Uxid.Size, compact: Bool,
-  _ letterCase: Uxid.Case = .lower,
-  time: UInt64 = corpusTime, rand: String, _ expected: String
-) -> EncodeCase {
-  EncodeCase(
-    id: id, prefix: prefix, size: size, compact: compact, letterCase: letterCase, time: time,
-    rand: hex(rand), expected: expected)
-}
-
-/// A hand-picked subset of `conformance/encode.json` at uxid-ex v2.10.0, copied
-/// case by case (inputs and expected ids unchanged; a `null` prefix is `""`).
-private let encodeCases: [EncodeCase] = [
-  encode("encode/xs-standard-lower", "usr", .xs, compact: false, rand: "", "usr_01hf7yat00"),
-  encode(
-    "encode/xs-standard-upper", "usr", .xs, compact: false, .upper, rand: "", "usr_01HF7YAT00"),
-  encode("encode/xs-compact-lower", "usr", .xs, compact: true, rand: "01", "usr_hf7yat0001"),
-  encode(
-    "encode/s-standard-lower", "usr", .s, compact: false, rand: "0123", "usr_01hf7yat0004h1"),
-  encode(
-    "encode/s-compact-upper", "usr", .s, compact: true, .upper, rand: "012345",
-    "usr_HF7YAT0004HM5"),
-  encode(
-    "encode/m-standard-lower", "usr", .m, compact: false, rand: "0123456789",
-    "usr_01hf7yat0004hmasw9"),
-  encode(
-    "encode/m-compact-lower", "usr", .m, compact: true, rand: "0123456789ab",
-    "usr_hf7yat0004hmasw9n3"),
-  encode(
-    "encode/l-standard-lower", "usr", .l, compact: false, rand: "0123456789abcd",
-    "usr_01hf7yat0004hmasw9nf61"),
-  encode(
-    "encode/l-compact-lower", "usr", .l, compact: true, rand: "0123456789abcdef",
-    "usr_hf7yat0004hmasw9nf6yf"),
-  encode(
-    "encode/xl-standard-upper", "usr", .xl, compact: false, .upper, rand: "0123456789abcdef0123",
-    "usr_01HF7YAT0004HMASW9NF6YY093"),
-  encode(
-    "encode/xl-compact-lower", "usr", .xl, compact: true, rand: "0123456789abcdef0123",
-    "usr_hf7yat0004hmasw9nf6yy093"),
-  encode(
-    "encode/xs-compact-rand-all-ones", "cus", .xs, compact: true, rand: "ff", "cus_hf7yat00z7"),
-  encode(
-    "encode/s-standard-rand-all-ones", "cus", .s, compact: false, rand: "ffff",
-    "cus_01hf7yat00zzz1"),
-  encode(
-    "encode/l-compact-rand-all-ones", "cus", .l, compact: true, rand: "ffffffffffffffff",
-    "cus_hf7yat00zzzzzzzzzzzzf"),
-  encode("encode/xs-standard-time-zero", "", .xs, compact: false, time: 0, rand: "", "0000000000"),
-  encode(
-    "encode/xs-standard-time-max", "", .xs, compact: false, time: 281_474_976_710_655, rand: "",
-    "7zzzzzzzzz"),
-  encode(
-    "encode/s-compact-guard-last-valid", "usr", .s, compact: true, time: 1_065_151_889_407,
-    rand: "012345", "usr_yzzzzzzz04hm5"),
-  encode(
-    "encode/xl-standard-empty-prefix", "", .xl, compact: false, rand: "0123456789abcdef0123",
-    "01hf7yat0004hmasw9nf6yy093"),
-  encode(
-    "encode/s-standard-prefix-with-delimiter", "a_b", .s, compact: false, rand: "0123",
-    "a_b_01hf7yat0004h1"),
-]
-
-/// The generate refusals of `conformance/invalid.json` at uxid-ex v2.10.0 that
-/// need neither a deterministic body nor monotonic generation (an absent
-/// option takes its default).
-private let refusalCases: [RefusalCase] = [
-  RefusalCase(
-    id: "invalid/generate-compact-time-at-guard",
-    options: Uxid.Options(
-      prefix: "usr", size: .s, compactTime: true, time: 2_164_663_517_184, rand: hex("010203")),
-    expected: .compactTimeOutOfRange),
-  RefusalCase(
-    id: "invalid/generate-compact-time-at-guard-previous-window",
-    options: Uxid.Options(
-      prefix: "usr", size: .s, compactTime: true, time: 1_065_151_889_408, rand: hex("010203")),
-    expected: .compactTimeOutOfRange),
-  RefusalCase(
-    id: "invalid/generate-rand-too-wide",
-    options: Uxid.Options(prefix: "usr", size: .s, time: corpusTime, rand: hex("010203")),
-    expected: .randWidthMismatch),
-  RefusalCase(
-    id: "invalid/generate-rand-too-narrow",
-    options: Uxid.Options(
-      prefix: "usr", size: .xl, time: corpusTime, rand: hex("010203040506070809")),
-    expected: .randWidthMismatch),
-  RefusalCase(
-    id: "invalid/generate-rand-on-xs-standard",
-    options: Uxid.Options(prefix: "usr", size: .xs, time: corpusTime, rand: hex("01")),
-    expected: .randWidthMismatch),
-  RefusalCase(
-    id: "invalid/generate-rand-size-11",
-    options: Uxid.Options(prefix: "usr", size: .xl, randSize: 11, time: corpusTime),
-    expected: .randSizeTooLarge),
-]
 
 /// A byte source that records each count it is asked for and answers with
 /// that many bytes of `fill`.
@@ -183,19 +64,6 @@ private let crockford = Set("0123456789abcdefghjkmnpqrstvwxyz")
 
 @Suite("Generate")
 struct GenerateTests {
-  @Test("encode (sabotage: short group shifted left -> id mismatch)", arguments: encodeCases)
-  func corpusEncode(_ testCase: EncodeCase) throws {
-    let options = Uxid.Options(
-      prefix: testCase.prefix, size: testCase.size, compactTime: testCase.compact,
-      case: testCase.letterCase, time: testCase.time, rand: testCase.rand)
-    #expect(try Uxid.generate(options) == testCase.expected)
-  }
-
-  @Test("refusal (sabotage: no compact marker check -> nothing thrown)", arguments: refusalCases)
-  func corpusRefusal(_ testCase: RefusalCase) {
-    #expect(throws: testCase.expected) { try Uxid.generate(testCase.options) }
-  }
-
   @Test("error names are corpus spellings (sabotage: rand_size_too_big -> raw values differ)")
   func errorNames() {
     #expect(

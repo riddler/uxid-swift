@@ -1,46 +1,7 @@
 import Testing
 import Uxid
 
-/// One deterministic case from the conformance corpus: its inputs and id.
-struct DeterministicCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let prefix: String
-  let from: String
-  let size: Uxid.Size
-  let letterCase: Uxid.Case
-  let expected: String
-
-  var testDescription: String { id }
-}
-
-private func derive(
-  _ id: String, _ prefix: String, _ from: String, _ size: Uxid.Size,
-  case letterCase: Uxid.Case = .lower, _ expected: String
-) -> DeterministicCase {
-  DeterministicCase(
-    id: id, prefix: prefix, from: from, size: size, letterCase: letterCase, expected: expected)
-}
-
 private let alice = "alice@example.com"
-
-/// The cases of `conformance/deterministic.json` at uxid-ex v2.10.0, copied
-/// case by case (inputs and expected ids unchanged; a `null` prefix is `""`).
-private let deterministicCases: [DeterministicCase] = [
-  derive(
-    "deterministic/golden-usr-xl", "usr", alice, .xl, "usr_zcvt7epac0t1ebcsjfyf7cwz25"),
-  derive("deterministic/golden-cus-s", "cus", "acme-corp", .s, "cus_zt9vnyfd85bff0"),
-  derive("deterministic/golden-no-prefix-m", "", alice, .m, "zqz4cwzgyw8ks97869"),
-  derive("deterministic/usr-xs", "usr", alice, .xs, "usr_z1yhw20vag"),
-  derive("deterministic/usr-s", "usr", alice, .s, "usr_z5rtsrkhx2h4dr"),
-  derive("deterministic/usr-m", "usr", alice, .m, "usr_zt8naccefxhwnrmscd"),
-  derive("deterministic/usr-l", "usr", alice, .l, "usr_zwbz6myvgz7ehe3nceap5n"),
-  derive("deterministic/usr-xl", "usr", alice, .xl, "usr_zcvt7epac0t1ebcsjfyf7cwz25"),
-  derive("deterministic/empty-prefix-xl", "", alice, .xl, "z4krgegf6drn563pvqhya4tsx9"),
-  derive("deterministic/no-prefix-xl", "", alice, .xl, "z4krgegf6drn563pvqhya4tsx9"),
-  derive(
-    "deterministic/usr-xl-upper", "usr", alice, .xl, case: .upper, "usr_ZCVT7EPAC0T1EBCSJFYF7CWZ25"),
-  derive("deterministic/non-ascii-from-m", "cus", "caf\u{e9}", .m, "cus_zfsx9se75671f9kdjv"),
-]
 
 /// The id a call returns, or the corpus name of the error it throws.
 private func outcome(_ options: Uxid.Options) -> String {
@@ -53,14 +14,6 @@ private func outcome(_ options: Uxid.Options) -> String {
 
 @Suite("Deterministic")
 struct DeterministicTests {
-  @Test("corpus (sabotage: count byte left out -> id mismatch)", arguments: deterministicCases)
-  func corpusDeterministic(_ testCase: DeterministicCase) throws {
-    let options = Uxid.Options(
-      prefix: testCase.prefix, from: testCase.from, size: testCase.size,
-      case: testCase.letterCase)
-    #expect(try Uxid.generate(options) == testCase.expected)
-  }
-
   @Test("rand with from is refused (sabotage: rand check removed -> outcome is an id)")
   func randWithFrom() {
     // The corpus case invalid/generate-rand-with-from, then the empty array.

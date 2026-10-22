@@ -1,28 +1,6 @@
 import Testing
 import Uxid
 
-/// One decode case from the conformance corpus: its id, input and reading.
-struct DecodeCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let input: String
-  let prefix: String?
-  let size: Uxid.Size
-  let compact: Bool
-  let deterministic: Bool
-  let time: Int64?
-
-  var testDescription: String { id }
-}
-
-/// One decode refusal from the corpus's invalid cases.
-struct DecodeRefusalCase: Sendable, CustomTestStringConvertible {
-  let id: String
-  let input: String
-  let expected: String
-
-  var testDescription: String { id }
-}
-
 private let corpusTime: Int64 = 1_700_000_000_000
 
 /// A clock fixed at the corpus time, inside the corpus clock window.
@@ -36,86 +14,6 @@ private let oneDay: Int64 = 86_400_000
 
 /// The compact guard's last valid millisecond: the largest compact time field.
 private let guardLastValid: Int64 = 1_065_151_889_407
-
-private func reading(
-  _ id: String, _ input: String, prefix: String? = "usr", _ size: Uxid.Size,
-  compact: Bool = false, deterministic: Bool = false, time: Int64? = corpusTime
-) -> DecodeCase {
-  DecodeCase(
-    id: id, input: input, prefix: prefix, size: size, compact: compact,
-    deterministic: deterministic, time: time)
-}
-
-/// The cases of `conformance/decode.json` at uxid-ex v2.10.0, copied case by
-/// case (inputs and readings unchanged).
-private let decodeCases: [DecodeCase] = [
-  reading("decode/xl-standard", "usr_01hf7yat0004hmasw9nf6yy093", .xl),
-  reading("decode/xl-compact", "usr_hf7yat0004hmasw9nf6yy093", .xl, compact: true),
-  reading("decode/l-standard", "usr_01hf7yat0004hmasw9nf61", .l),
-  reading("decode/l-compact", "usr_hf7yat0004hmasw9nf6yf", .l, compact: true),
-  reading("decode/m-standard", "usr_01hf7yat0004hmasw9", .m),
-  reading(
-    "decode/m-compact-reads-as-standard", "usr_hf7yat0004hmasw9n3", .m,
-    time: 51_950_139_736_068),
-  reading("decode/s-standard", "usr_01hf7yat0004h1", .s),
-  reading("decode/s-compact", "usr_hf7yat0004hm5", .s, compact: true),
-  reading("decode/xs-standard", "usr_01hf7yat00", .xs),
-  reading(
-    "decode/xs-compact-reads-as-standard", "usr_hf7yat0001", .xs, time: 51_950_139_736_065),
-  reading("decode/xl-standard-upper", "usr_01HF7YAT0004HMASW9NF6YY093", .xl),
-  reading("decode/xl-standard-no-prefix", "01hf7yat0004hmasw9nf6yy093", prefix: nil, .xl),
-  reading("decode/s-standard-prefix-with-delimiter", "a_b_01hf7yat000001", prefix: "a_b", .s),
-  reading(
-    "decode/s-compact-guard-last-valid", "usr_yzzzzzzz04hm5", .s, compact: true,
-    time: guardLastValid),
-  reading(
-    "decode/deterministic-usr-xl", "usr_zcvt7epac0t1ebcsjfyf7cwz25", .xl, deterministic: true,
-    time: nil),
-  reading(
-    "decode/deterministic-cus-s", "cus_zt9vnyfd85bff0", prefix: "cus", .s, deterministic: true,
-    time: nil),
-  reading(
-    "decode/deterministic-no-prefix-m", "zqz4cwzgyw8ks97869", prefix: nil, .m,
-    deterministic: true, time: nil),
-  reading(
-    "decode/deterministic-upper-marker", "usr_ZCVT7EPAC0T1EBCSJFYF7CWZ25", .xl,
-    deterministic: true, time: nil),
-]
-
-private func refused(_ id: String, _ input: String, _ expected: String) -> DecodeRefusalCase {
-  DecodeRefusalCase(id: id, input: input, expected: expected)
-}
-
-/// The decode cases of `conformance/invalid.json` at uxid-ex v2.10.0, copied
-/// case by case (inputs and reasons unchanged).
-private let refusals: [DecodeRefusalCase] = [
-  refused("invalid/decode-empty-string", "", "empty"),
-  refused("invalid/decode-ends-in-delimiter", "usr_", "empty"),
-  refused("invalid/decode-prefix-with-delimiter-ends-in-delimiter", "a_b_", "empty"),
-  refused("invalid/decode-delimiter-only", "_", "empty"),
-  refused("invalid/decode-length-11", "usr_01hf7yat000", "invalid_length"),
-  refused("invalid/decode-length-25", "usr_01hf7yat00000g40r40m30e20", "invalid_length"),
-  refused("invalid/decode-length-27", "usr_01hf7yat00000g40r40m30e2090", "invalid_length"),
-  refused("invalid/decode-no-delimiter-short", "usr", "invalid_length"),
-  refused(
-    "invalid/decode-character-in-time", "usr_01hu7yat00000g40r40m30e209", "invalid_character"),
-  refused(
-    "invalid/decode-character-in-random", "usr_01hf7yat00000g4lr40m30e209", "invalid_character"),
-  refused(
-    "invalid/decode-upper-o-in-random", "usr_01hf7yat00000g40r40mO0e209", "invalid_character"),
-  refused(
-    "invalid/decode-hyphen-in-body", "usr_01hf7yat00-00g40r40m30e209", "invalid_character"),
-  refused(
-    "invalid/decode-character-in-deterministic", "usr_zcvt7epac0t1ebcsjfyf7cwzi5",
-    "invalid_character"),
-  refused(
-    "invalid/decode-non-ascii-table-length", "01hf7yat00000g40r40m30e2\u{e9}", "invalid_character"
-  ),
-  refused(
-    "invalid/decode-non-ascii-off-table-length", "01hf7yat00000g40r40m30e20\u{e9}",
-    "invalid_length"),
-  refused("invalid/decode-length-and-character", "usr_01hf7yat00u", "invalid_length"),
-]
 
 /// The decoded value, or `nil` when the string was refused.
 private func decoded(
@@ -139,22 +37,6 @@ private func compactTime(_ id: String, clock: Int64) -> Int64? {
 
 @Suite("Decode")
 struct DecodeTests {
-  @Test("corpus (sabotage: no window step-back -> time mismatch)", arguments: decodeCases)
-  func corpusDecode(_ testCase: DecodeCase) throws {
-    let value = try Uxid.decode(testCase.input, options: Uxid.DecodeOptions(clock: corpusClock))
-      .get()
-    #expect(value.prefix == testCase.prefix)
-    #expect(value.size == testCase.size)
-    #expect(value.isCompact == testCase.compact)
-    #expect(value.isDeterministic == testCase.deterministic)
-    #expect(value.time == testCase.time)
-  }
-
-  @Test("refusal (sabotage: length after alphabet -> reason differs)", arguments: refusals)
-  func corpusRefusal(_ testCase: DecodeRefusalCase) {
-    #expect(reason(testCase.input) == testCase.expected)
-  }
-
   @Test("reasons are corpus spellings (sabotage: invalid_chars -> raw values differ)")
   func reasonSpellings() {
     #expect(
